@@ -17,6 +17,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 using System.Xml.Linq;
 using WpfHexaEditor.Core;
 using WpfHexaEditor.Core.Bytes;
@@ -134,6 +135,12 @@ namespace WpfHexaEditor
         /// </summary>
         private bool _allowZoom = true;
 
+        /// <summary>
+        /// Delay the refresh
+        /// </summary>
+        private DispatcherTimer _resizeTimer;
+        private readonly TimeSpan _resizeDelay = TimeSpan.FromMilliseconds(300); 
+
         #endregion Global Class variables
 
         #region Events
@@ -245,6 +252,10 @@ namespace WpfHexaEditor
         public HexEditor()
         {
             InitializeComponent();
+
+            // initialize timer
+            _resizeTimer = new DispatcherTimer { Interval = _resizeDelay };
+            _resizeTimer.Tick += ResizeTimer_Tick;
 
             //Refresh view
             CheckProviderIsOnProgress();
@@ -2674,9 +2685,8 @@ namespace WpfHexaEditor
         {
             if (!e.HeightChanged || !IsAutoRefreshOnResize) return;
 
-            if (!CheckIsOpen(_provider)) BuildDataLines(MaxVisibleLine);
-
-            RefreshView(true);
+            _resizeTimer.Stop();
+            _resizeTimer.Start();
         }
 
         /// <summary>
@@ -5736,6 +5746,17 @@ namespace WpfHexaEditor
                 _provider.AddByteAdded(@byte, bytePositionInStream++);
 
             RefreshView();
+        }
+        #endregion
+
+        #region Timer logic to limit refresh
+        private void ResizeTimer_Tick(object? sender, EventArgs e)
+        {
+            _resizeTimer.Stop();
+
+            if (!CheckIsOpen(_provider)) return;
+
+            RefreshView(true);
         }
         #endregion
     }
